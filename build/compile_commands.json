@@ -1,0 +1,7 @@
+[
+{
+  "directory": "C:/Users/vilde/Documents/CompPhysProject1/build",
+  "command": "C:\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\i686-w64-mingw32-g++.exe    -g   -o CMakeFiles\\new_project.dir\\main.cpp.obj -c C:\\Users\\vilde\\Documents\\CompPhysProject1\\main.cpp",
+  "file": "C:/Users/vilde/Documents/CompPhysProject1/main.cpp"
+}
+]
