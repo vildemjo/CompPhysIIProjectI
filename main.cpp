@@ -9,61 +9,84 @@
 
 using namespace std;
 
-double waveFunctionMany(double alpha, int numberOfParticles, double xs[]){
-    double xSum;
-    for(int n=0; n<numberOfParticles; n++){
-        xSum += xs[n]*xs[n];
+const int numberOfDimensions = 3;
+const int numberOfParticles = 2;
+
+double waveFunctionMany(double alpha, double r[numberOfParticles][numberOfDimensions]){
+    
+    double rSum = 0.0;
+
+    for(int i1=0; i1<numberOfParticles; i1++){
+        for(int n1=0; n1<numberOfDimensions; n1++){
+            rSum += r[i1][n1]*r[i1][n1];
+        }
     }
-    return exp(-alpha*xSum);
+    return exp(-alpha*rSum);
 }
 
 
-double localEnergyAnalyticalMany(double alpha, int numberOfParticles, double xs[]){
+double localEnergyAnalyticalMany(double alpha, double r[numberOfParticles][numberOfDimensions]){
     double hbar = 1.0;
     double m = 1.0;
     double omega = 1.0;
 
-    double xSum2 = 0.0;
+    double rSum2 = 0.0;
 
-    for(int n=0; n<numberOfParticles; n++){
-        xSum2 += xs[n]*xs[n];
+    for(int i2=0; i2<numberOfParticles; i2++){
+        for(int n2=0; n2<numberOfDimensions; n2++){
+            rSum2 += r[i2][n2]*r[i2][n2];
+        }
+        
     }
-    return (-hbar*hbar/(2*m))*(-2*alpha*numberOfParticles + 4*alpha*alpha*xSum2) + 0.5*m*omega*xSum2;
+    return (-hbar*hbar/(2*m))*(-2*alpha*numberOfParticles*numberOfDimensions + 4*alpha*alpha*rSum2) + 0.5*m*omega*rSum2;
 }
 
-double localEnergyNumericalMany(double alpha, int numberOfParticles, double xs[]){
+double localEnergyNumericalMany(double alpha, double r[numberOfParticles][numberOfDimensions]){
     double hbar = 1.0;
     double m = 1.0;
     double omega = 1.0;
 
     double energy = 0.0;
-    double dx = 0.001;
-    double dpsidx2 = 0.0;
-    double xSum2 = 0.0;
+    double step = 0.001;
+    double dpsidr2 = 0.0;
+    double rSum2 = 0.0;
 
-    double x_less[numberOfParticles] = {};
-    double x_more[numberOfParticles] = {};
+    double r_less[numberOfParticles][numberOfDimensions] = {0.0};
+    double r_more[numberOfParticles][numberOfDimensions] = {0.0};
 
-    for(int jj=0; jj<numberOfParticles ;jj++){
-        x_less[jj] = xs[jj];
-        x_more[jj] = xs[jj];
-        xSum2 += xs[jj]*xs[jj];
+    // Making copies of r
+    for(int i3=0; i3<numberOfParticles; i3++){
+        for(int n3=0; n3<numberOfDimensions;n3++){
+            r_less[i3][n3] = r[i3][n3];
+            r_more[i3][n3] = r[i3][n3];
+
+            rSum2 += r[i3][n3]*r[i3][n3];
+        }
     }
-    for(int n=0; n<numberOfParticles; n++){
-        x_less[n] = xs[n]-dx;
-        x_more[n] = xs[n]+dx;
 
-        dpsidx2 += (waveFunctionMany(alpha, numberOfParticles,x_more)+waveFunctionMany(alpha, numberOfParticles,x_less))/(dx*dx);
+    // Changing the copies to obtain an array of "next step" and "previous step"
+    for(int i4=0; i4<numberOfParticles; i4++){
+         for(int n4=0; n4<numberOfDimensions;n4++){
+            // finding the next step and previous step for one particle in one spesific dimension
+            r_less[i4][n4] = r[i4][n4]-step;
+            r_more[i4][n4] = r[i4][n4]+step;
+
+            dpsidr2 += (waveFunctionMany(alpha, r_more)+waveFunctionMany(alpha,r_less))/(step*step);
+
+            // Resetting the arrays so that a new particle and spesific dimension can be calculated
+            r_less[i4][n4] = r[i4][n4];
+            r_more[i4][n4] = r[i4][n4];
+        }
     }
     
-    dpsidx2 += -2*numberOfParticles*waveFunctionMany(alpha,numberOfParticles,xs)/(dx*dx);
+    dpsidr2 += -2*numberOfParticles*numberOfDimensions*waveFunctionMany(alpha,r)/(step*step);
 
-    energy = (1.0/waveFunctionMany(alpha,numberOfParticles,xs))*(-hbar*hbar/(2*m)*dpsidx2) + 0.5*m*omega*xSum2;
+    energy = (1.0/waveFunctionMany(alpha, r))*(-hbar*hbar/(2*m)*dpsidr2) + 0.5*m*omega*rSum2;
     
     return energy;
 }
 
-void MonteCarloSampling(int maxVariations, int numberOfParticles, double stepSize, int numberOfDimensions){
+void MonteCarloSampling(int maxVariations, double stepSize){
     Random random;
 
     double hbar = 1.0;
@@ -72,8 +95,8 @@ void MonteCarloSampling(int maxVariations, int numberOfParticles, double stepSiz
 
     int numberOfMCcycles = 1e6;
 
-    double positionOld[numberOfParticles] = {};
-    double positionNew[numberOfParticles] = {};
+    double positionOld[numberOfParticles][numberOfDimensions] = {0.0};
+    double positionNew[numberOfParticles][numberOfDimensions] = {0.0};
 
     double waveFunctionOld = 0.0;
     double waveFunctionNew = 0.0;
@@ -89,7 +112,7 @@ void MonteCarloSampling(int maxVariations, int numberOfParticles, double stepSiz
     cout << "alpha" << "\t" <<"energy (ana): " << "\t" << "energy (num): " << "\t" << "variance (ana): " << "\t" << "error: " << endl;
 
     // Evaluating the energy for different alpha (i.e. different wavefunctions)
-    for (int i=0; i < maxVariations; i++){
+    for (int j=0; j < maxVariations; j++){
         alpha += 0.05;
         
         double energy_ana = 0.0;
@@ -98,33 +121,38 @@ void MonteCarloSampling(int maxVariations, int numberOfParticles, double stepSiz
         double energy2_num = 0.0;
 
         // Pick a position:
-        for(int m=0; m<numberOfParticles;m++){
-            positionOld[m] = stepSize*(random.nextDouble()-0.5);
+        for(int i5=0; i5<numberOfParticles;i5++){
+            for(int n5=0; n5<numberOfDimensions; n5++){
+                positionOld[i5][n5] = stepSize*(random.nextDouble()-0.5);
+            }
         }
 
-        waveFunctionOld = waveFunctionMany(alpha, numberOfParticles, positionOld);
+        waveFunctionOld = waveFunctionMany(alpha, positionOld);
 
         // Moving one particle at the time
         for(int whichParticle=0; whichParticle<numberOfParticles; whichParticle++){
             
-            for (int j=0; j<numberOfMCcycles; j++){
+            for (int jj=0; jj<numberOfMCcycles; jj++){
 
                 // Suggest a move to a new position:
-                positionNew[whichParticle] = positionOld[whichParticle] + stepSize*(random.nextDouble()-0.5);
-            
-                waveFunctionNew = waveFunctionMany(alpha, numberOfParticles,positionNew);
+                for(int n6=0; n6<numberOfDimensions; n6++){
+                    positionNew[whichParticle][n6] = positionOld[whichParticle][n6] + stepSize*(random.nextDouble()-0.5);
+                }
+                waveFunctionNew = waveFunctionMany(alpha, positionNew);
 
                 // Check if new position is accepted:
                 if (random.nextDouble() <= (waveFunctionNew*waveFunctionNew)/(waveFunctionOld*waveFunctionOld)){
+                    
                     // If accepted, make the move:
-                    for (int ii=0; ii<numberOfParticles;ii++){
-                        positionOld[ii] = positionNew[ii];
+                    for(int n7=0; n7<numberOfDimensions;n7++){
+                        positionOld[whichParticle][n7] = positionNew[whichParticle][n7];
                     }
+                    
                     waveFunctionOld = waveFunctionNew;
                 }
                 // Calculate the local energy (in position x with alpha) analytically and numerically:
-                deltaEnergy_ana = localEnergyAnalyticalMany(alpha, numberOfParticles, positionOld);
-                deltaEnergy_num = localEnergyNumericalMany(alpha, numberOfParticles, positionOld);
+                deltaEnergy_ana = localEnergyAnalyticalMany(alpha, positionOld);
+                deltaEnergy_num = localEnergyNumericalMany(alpha, positionOld);
                 // Calculating the sum of all local energies:
                 energy_ana += deltaEnergy_ana;
                 energy2_ana += deltaEnergy_ana*deltaEnergy_ana;
@@ -151,20 +179,22 @@ void MonteCarloSampling(int maxVariations, int numberOfParticles, double stepSiz
 }
 
 
+
 int main() {
     Random random;
 
     int maxVariantions = 10;
     int numberOfParticles = 1;
-    int numberOfDimensions = 2;
+
     double stepSize = 1;
+ 
+    
 
     std::cout << std::setprecision(6) << std::fixed;
 
-    MonteCarloSampling(maxVariantions, numberOfParticles, stepSize, numberOfDimensions);
+    MonteCarloSampling(maxVariantions, stepSize);
     // MonteCarloSamplingOne(maxVariantions);
 
-    
 
 
     return 0;
